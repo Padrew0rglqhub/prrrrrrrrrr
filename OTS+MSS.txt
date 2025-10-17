@@ -1,0 +1,1337 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Padre_w0rg
+
+//@version=5
+indicator("OneTradeSetup", overlay = true, max_lines_count = 500, max_boxes_count = 500)
+
+//+------------------------------------------------------------------------------------------------------------+//
+//+--- Types                                                                                                ---+//
+//+------------------------------------------------------------------------------------------------------------+//
+
+type Zone
+    float o
+    float h
+    float l
+    float c
+    int   o_time
+    int   h_time
+    int   l_time
+    int   c_time
+    box   b
+
+type ohlc
+    float  o
+    float  h
+    float  l
+    float  c
+    float  o_MN
+    int    o_MN_time
+    float  o_830
+    int    o_830_time
+    float  o_930
+    int    o_930_time
+    int    o_time
+    int    o_idx
+    int    h_time
+    int    l_time
+    int    c_time
+    line   o_line
+    line   h_line
+    line   l_line
+    line   c_line
+    line   s_line
+    line   o_MN_line
+    line   o_MN_thick
+    line   o_830_line
+    line   o_830_thick
+    line   o_930_line
+    line   o_930_thick
+    string dow
+    int    dow_index
+
+type Candle
+    float  o
+    float  h
+    float  l
+    float  c 
+    string dow
+    box   body
+    line  wick_top
+    line  wick_bottom
+    label lbl
+
+type Projection
+    box  body_high
+    box  body_low
+    line high_third
+    label high_third_label
+    line low_third
+    label low_third_label
+    line max
+    label max_label
+    line min
+    label min_label
+
+type Settings
+    string  hide_TF
+    bool    show_session
+    bool    show_open
+    bool    show_high
+    bool    show_low
+    bool    show_close
+    bool    show_MN
+    bool    show_830
+    bool    show_930
+    int     max_days
+    color   s_color
+    string  s_style
+    int     s_size
+    bool    show_dayofweek
+    color   dayofweek_color
+    color   o_MN_color
+    string  o_MN_style
+    int     o_MN_size
+    color   o_830_color
+    string  o_830_style
+    int     o_830_size
+    color   o_930_color
+    string  o_930_style
+    int     o_930_size
+    bool    show_asia
+    color   asia_background
+    color   asia_border
+    string  asia_border_style
+    int     asia_border_size
+    string  asia_zone_title
+    float   asia_zone_range_threshold 
+    int     asia_o_hour
+    int     asia_o_min
+    int     asia_c_hour
+    int     asia_c_min
+    bool    show_london
+    color   london_background
+    color   london_border
+    string  london_border_style
+    int     london_border_size
+    string  london_zone_title
+    float   london_zone_range_threshold 
+    int     london_o_hour
+    int     london_o_min
+    int     london_c_hour
+    int     london_c_min
+    bool    show_ny
+    color   ny_background
+    color   ny_border
+    string  ny_border_style
+    int     ny_border_size
+    string  ny_zone_title
+    float   ny_zone_range_threshold 
+    int     ny_o_hour
+    int     ny_o_min
+    int     ny_c_hour
+    int     ny_c_min
+    bool    show_ny2
+    color   ny2_background
+    color   ny2_border
+    string  ny2_border_style
+    int     ny2_border_size
+    string  ny2_zone_title
+    float   ny2_zone_range_threshold 
+    int     ny2_o_hour
+    int     ny2_o_min
+    int     ny2_c_hour
+    int     ny2_c_min
+    bool    show_ny3
+    color   ny3_background
+    color   ny3_border
+    string  ny3_border_style
+    int     ny3_border_size
+    string  ny3_zone_title
+    float   ny3_zone_range_threshold 
+    int     ny3_o_hour
+    int     ny3_o_min
+    int     ny3_c_hour
+    int     ny3_c_min
+    bool    show_openrange
+    color   openrange_background
+    color   openrange_border
+    string  openrange_style
+    int     openrange_size
+    bool    openrange_extend
+    int     openrange_o_hour
+    int     openrange_o_min
+    int     openrange_c_hour
+    int     openrange_c_min
+    bool    show_openrangegap
+    color   openrangegap_background
+    color   openrangegap_border
+    string  openrangegap_style
+    int     openrangegap_size
+    bool    openrangegap_extend
+    int     openrangegap_o_hour
+    int     openrangegap_o_min
+    int     openrangegap_c_hour
+    int     openrangegap_c_min
+    bool    show_TOD_thick
+    bool    show_DC
+    color   DC_bullish
+    color   DC_bearish
+    color   DC_wick
+    int     DC_buffer
+    int     DC_spacing
+    int     DC_count
+    bool    DC_ignore_saturday
+    bool    DC_ignore_sunday
+    bool    ADR_show
+    int     ADR_buffer
+    color   ADR_bullish
+    color   ADR_bearish
+    bool    ADR_Trace
+    color   ADR_Trace_color
+    string  ADR_Trace_style
+    int     ADR_Trace_size
+    bool    ADR_Trace_Label
+    string  ADR_Trace_Label_size
+    color   ADR_Trace_Label_color
+    color   ADR_Trace_Label_bgcolor
+    bool    ADR_Trace_Third
+
+//+------------------------------------------------------------------------------------------------------------+//
+//+--- Variable declaration                                                                                 ---+//
+//+------------------------------------------------------------------------------------------------------------+//
+var ohlc[] OHLC                 = array.new<ohlc>()
+var Candle[] DC                 = array.new<Candle>()
+var Zone[] asia                 = array.new<Zone>()
+var Zone[] london               = array.new<Zone>()
+var Zone[] ny                   = array.new<Zone>()
+var Zone[] ny2                  = array.new<Zone>()
+var Zone[] ny3                  = array.new<Zone>()
+var Zone[] openrange            = array.new<Zone>()
+var Zone[] openrangegap         = array.new<Zone>()
+var Projection projection       = Projection.new()
+
+Settings settings = Settings.new()
+
+//+------------------------------------------------------------------------------------------------------------+//
+//+--- Settings                                                                                             ---+//
+//+------------------------------------------------------------------------------------------------------------+//
+g_session       = "Session"
+g_dailylevels   = "Daily Levels"
+g_killzones     = "Killzones"
+g_openranges    = "Open Ranges"
+g_timeofday     = "Time Of Day"
+g_ADR           = "Projection"
+
+settings.hide_TF            := input.timeframe("15", "Hide above ", tooltip="Any value above 15 minute can result in wrong display. This is due to how Tradingview provides the data to the indicator.")
+max_days                     = input.int(100, "Limit to last X days", minval = 1, maxval = 100)
+settings.max_days           := max_days
+settings.show_session       := input.bool(true, "Separator       ", inline='1', group=g_session)
+settings.s_color            := input.color(color.new(color.gray, 50), "", inline='1', group=g_session)
+settings.s_style            := input.string('----', '', options = ['———', '----', '····'], inline='1', group=g_session)
+settings.s_size             := input.int(1, '', options = [1,2,3,4], inline='1', group=g_session)
+
+settings.show_dayofweek     := input.bool(true, "Days of week", inline='2', group=g_session)
+settings.dayofweek_color    := input.color(color.new(color.black, 0), "", inline='2', group=g_session)
+
+settings.show_asia          := input.bool(true, "ZONE 1   ", group=g_killzones, inline="0")
+settings.asia_zone_title    := input.string("ASR", "Name", group=g_killzones, inline = "0")
+settings.asia_background    := input.color(color.new(color.green, 90), "", group=g_killzones, inline = "0")
+settings.asia_border        := input.color(color.new(color.green, 0), "", group=g_killzones, inline = "0")
+settings.asia_border_size   := input.int(1, "", options = [1,2,3,4], group=g_killzones, inline = "0")
+settings.asia_border_style  := input.string('····', '', options = ['———', '----', '····'], group=g_killzones, inline='0')
+settings.asia_zone_range_threshold := input.float(30, "Range Threshold", step=0.1, group=g_killzones, inline = "0")
+settings.asia_o_hour        := input.int(19, "         Open Hour", group=g_killzones, inline="1", minval = 0, maxval = 24)
+settings.asia_o_min         := input.int(0, "Minute", group=g_killzones, inline="1", minval = 0, maxval = 59)
+settings.asia_c_hour        := input.int(24, "         Close Hour", group=g_killzones, inline="2", minval = 1, maxval = 24)
+settings.asia_c_min         := input.int(0, "Minute", group=g_killzones, inline="2", minval = 0, maxval = 59)
+
+settings.show_london        := input.bool(true, "ZONE 2", group=g_killzones, inline = "3")
+settings.london_zone_title   := input.string("CBDR", "Name", group=g_killzones, inline = "3")
+settings.london_background   := input.color(color.new(color.blue, 90), "", group=g_killzones, inline = "3")
+settings.london_border       := input.color(color.new(color.blue, 0), "", group=g_killzones, inline = "3")
+settings.london_border_size  := input.int(1, "", options = [1,2,3,4], group=g_killzones, inline = "3")
+settings.london_border_style := input.string('····', '', options = ['———', '----', '····'], group=g_killzones, inline='3')
+settings.london_zone_range_threshold := input.float(50, "Range Threshold", step=0.1, group=g_killzones, inline = "3")
+settings.london_o_hour      := input.int(14, "         Open Hour", group=g_killzones, inline="4", minval = 1, maxval = 24)
+settings.london_o_min       := input.int(0, "Minute", group=g_killzones, inline="4", minval = 0, maxval = 59)
+settings.london_c_hour      := input.int(20, "         Close Hour", group=g_killzones, inline="5", minval = 1, maxval = 24)
+settings.london_c_min       := input.int(0, "Minute", group=g_killzones, inline="5", minval = 0, maxval = 59)
+
+settings.show_ny            := input.bool(true, "ZONE 3   ", group=g_killzones, inline="6")
+settings.ny_zone_title      := input.string("LSR", "Name", group=g_killzones, inline = "6")
+settings.ny_background      := input.color(color.new(color.orange, 90), "", group=g_killzones, inline = "6")
+settings.ny_border          := input.color(color.new(color.orange, 0), "", group=g_killzones, inline = "6")
+settings.ny_border_size     := input.int(1, "", options = [1,2,3,4], group=g_killzones, inline = "6")
+settings.ny_border_style    := input.string('····', '', options = ['———', '----', '····'], group=g_killzones, inline='6')
+settings.ny_zone_range_threshold := input.float(50, "Range Threshold", step=0.1, group=g_killzones, inline = "6")
+settings.ny_o_hour          := input.int(2, "         Open Hour", group=g_killzones, inline="7", minval = 1, maxval = 24)
+settings.ny_o_min           := input.int(0, "Minute", group=g_killzones, inline="7", minval = 0, maxval = 59)
+settings.ny_c_hour          := input.int(5, "         Close Hour", group=g_killzones, inline="8", minval = 1, maxval = 24)
+settings.ny_c_min           := input.int(0, "Minute", group=g_killzones, inline="8", minval = 0, maxval = 59)
+
+settings.show_ny2           := input.bool(true, "ZONE 4  ", group=g_killzones, inline="9")
+settings.ny2_zone_title     := input.string("NSR", "Name", group=g_killzones, inline = "9")
+settings.ny2_background     := input.color(color.new(color.purple, 90), "", group=g_killzones, inline = "9")
+settings.ny2_border         := input.color(color.new(color.purple, 0), "", group=g_killzones, inline = "9")
+settings.ny2_border_size    := input.int(1, "", options = [1,2,3,4], group=g_killzones, inline = "9")
+settings.ny2_border_style   := input.string('····', '', options = ['———', '----', '····'], group=g_killzones, inline='9')
+settings.ny2_zone_range_threshold := input.float(50, "Range Threshold", step=0.1, group=g_killzones, inline = "9")
+settings.ny2_o_hour         := input.int(8, "         Open Hour", group=g_killzones, inline="10", minval = 1, maxval = 24)
+settings.ny2_o_min          := input.int(30, "Minute", group=g_killzones, inline="10", minval = 0, maxval = 59)
+settings.ny2_c_hour         := input.int(11, "         Close Hour", group=g_killzones, inline="11", minval = 1, maxval = 24)
+settings.ny2_c_min          := input.int(0, "Minute", group=g_killzones, inline="11", minval = 0, maxval = 59)
+
+settings.show_ny3           := input.bool(true, "ZONE 5  ", group=g_killzones, inline="12")
+settings.ny3_zone_title     := input.string("NYLSR", "Name", group=g_killzones, inline = "12")
+settings.ny3_background     := input.color(color.new(color.teal, 90), "", group=g_killzones, inline = "12")
+settings.ny3_border         := input.color(color.new(color.teal, 0), "", group=g_killzones, inline = "12")
+settings.ny3_border_size    := input.int(1, "", options = [1,2,3,4], group=g_killzones, inline = "12")
+settings.ny3_border_style   := input.string('····', '', options = ['———', '----', '····'], group=g_killzones, inline='12')
+settings.ny3_zone_range_threshold := input.float(50, "Range Threshold", step=0.1, group=g_killzones, inline = "12")
+settings.ny3_o_hour         := input.int(12, "         Open Hour", group=g_killzones, inline="13", minval = 1, maxval = 24)
+settings.ny3_o_min          := input.int(0, "Minute", group=g_killzones, inline="13", minval = 0, maxval = 59)
+settings.ny3_c_hour         := input.int(13, "         Close Hour", group=g_killzones, inline="14", minval = 1, maxval = 24)
+settings.ny3_c_min          := input.int(30, "Minute", group=g_killzones, inline="14", minval = 0, maxval = 59)
+
+settings.show_MN           := input.bool(true, "Midnight Open", inline='1', group=g_timeofday)
+settings.o_MN_color        := input.color(color.new(#e2cc05, 0), "", inline='1', group=g_timeofday)
+settings.o_MN_style        := input.string('····', '', options = ['———', '----', '····'], inline='1', group=g_timeofday)
+settings.o_MN_size         := input.int(1, '', options = [1,2,3,4], inline='1', group=g_timeofday)
+
+settings.ADR_show           := input.bool(true, "Average Daily Range", group=g_ADR, inline = "1", tooltip="Project possible range to the top and bottom based on the average ADR.")
+settings.ADR_bullish        := input.color(color.new(#5e676e, 10), "", group = g_ADR, inline="1")
+settings.ADR_bearish        := input.color(color.new(#181616, 10), "", group = g_ADR, inline="1")
+
+settings.ADR_Trace          := input.bool(true, "Trace Lines", group=g_ADR, inline="2")
+settings.ADR_Trace_color    := input.color(color.new(color.black, 10), "", group = g_ADR, inline="2")
+settings.ADR_Trace_style    := input.string('····', '', options = ['———', '----', '····'], inline='2', group=g_ADR)
+settings.ADR_Trace_size     := input.int(1, '', options = [1,2,3,4], inline='2', group=g_ADR)
+settings.ADR_Trace_Label    := input.bool(true, "Labels    ", group=g_ADR, inline="3")
+settings.ADR_Trace_Label_color      := input.color(color.new(color.black, 10), "", group = g_ADR, inline="3")
+settings.ADR_Trace_Label_bgcolor    := input.color(color.new(color.black, 100), "", group = g_ADR, inline="3")
+settings.ADR_Trace_Label_size       := input.string(size.small, "", [size.tiny, size.small, size.normal, size.large, size.huge], group = g_ADR, inline="3")
+settings.ADR_Trace_Third    := input.bool(true, "Mark Midnight 30% ADR Level", group=g_ADR)
+settings.ADR_buffer         := input.int(14, "Offset from current candle", minval=1, maxval=50, group = g_ADR)
+
+//+------------------------------------------------------------------------------------------------------------+//
+//+--- Time Maps                                                                                            ---+//
+//+------------------------------------------------------------------------------------------------------------+//
+tAsia           = time("1", str.tostring(settings.asia_o_hour, "00")+str.tostring(settings.asia_o_min, "00") + "-" + str.tostring(settings.asia_c_hour, "00")+str.tostring(settings.asia_c_min, "00"), "America/New_York")
+tLondon         = time("1", str.tostring(settings.london_o_hour, "00")+str.tostring(settings.london_o_min, "00") + "-" + str.tostring(settings.london_c_hour, "00")+str.tostring(settings.london_c_min, "00"), "America/New_York")
+tNY             = time("1", str.tostring(settings.ny_o_hour, "00")+str.tostring(settings.ny_o_min, "00") + "-" + str.tostring(settings.ny_c_hour, "00")+str.tostring(settings.ny_c_min, "00"), "America/New_York")
+tNY2            = time("1", str.tostring(settings.ny2_o_hour, "00")+str.tostring(settings.ny2_o_min, "00") + "-" + str.tostring(settings.ny2_c_hour, "00")+str.tostring(settings.ny2_c_min, "00"), "America/New_York")
+tNY3            = time("1", str.tostring(settings.ny3_o_hour, "00")+str.tostring(settings.ny3_o_min, "00") + "-" + str.tostring(settings.ny3_c_hour, "00")+str.tostring(settings.ny3_c_min, "00"), "America/New_York")
+
+tOpenRange      = time("1", str.tostring(settings.openrange_o_hour, "00")+str.tostring(settings.openrange_o_min, "00") + "-" + str.tostring(settings.openrange_c_hour, "00")+str.tostring(settings.openrange_c_min, "00"), "America/New_York")
+tOpenRangeGap   = time("1", str.tostring(settings.openrangegap_o_hour, "00")+str.tostring(settings.openrangegap_o_min, "00") + "-" + str.tostring(settings.openrangegap_c_hour, "00")+str.tostring(settings.openrangegap_c_min, "00"), "America/New_York")
+
+color color_transparent     = #ffffff00
+
+//+------------------------------------------------------------------------------------------------------------+//
+//+--- Helper Functions                                                                                     ---+//
+//+------------------------------------------------------------------------------------------------------------+//
+f_get_line_style(style) =>
+    out = switch style
+        '———'  => line.style_solid
+        '----' => line.style_dashed
+        '····' => line.style_dotted
+
+f_get_dayofweek(index) =>
+    switch index
+        1 => "Sunday"
+        2 => "Monday"
+        3 => "Tuesday"
+        4 => "Wednesday"
+        5 => "Thursday"
+        6 => "Friday"
+        7 => "Saturday"
+        na(index) => ""
+
+f_get_day_offset(index) =>
+    bar_length = time-time[1]
+    switch index
+        1 => 10800000 / bar_length
+        6 => 32400000 / bar_length
+        => 43200000 / bar_length
+
+f_Validtimeframe() =>
+    n1 = timeframe.in_seconds()
+    n2 = timeframe.in_seconds(settings.hide_TF)
+    n1 <= n2
+
+//+------------------------------------------------------------------------------------------------------------+//
+//+--- OHLC Methods                                                                                         ---+//
+//+------------------------------------------------------------------------------------------------------------+//
+method new(ohlc[] OHLC) =>
+    ohlc newDay = ohlc.new()
+    newDay.o            := open
+    newDay.h            := high
+    newDay.l            := low
+    newDay.c            := close
+    newDay.o_time       := time
+    newDay.o_idx        := bar_index
+    newDay.h_time       := time
+    newDay.l_time       := time
+    newDay.c_time       := time
+    newDay.o_MN         := open
+    newDay.o_MN_time    := time
+    newDay.o_830_time   := time+30600000
+    newDay.o_930_time   := time+34200000
+    newDay.dow          := f_get_dayofweek(dayofweek(time, "America/New_York"))
+    newDay.dow_index    := dayofweek(time, "America/New_York")
+
+    OHLC.unshift(newDay)
+
+    if OHLC.size() > settings.max_days
+        for i = OHLC.size()-1 to settings.max_days
+            ohlc del = OHLC.get(i)
+            line.delete(del.o_line)
+            line.delete(del.h_line)
+            line.delete(del.l_line)
+            line.delete(del.c_line)
+            line.delete(del.s_line)
+            line.delete(del.o_MN_line)
+            line.delete(del.o_MN_thick)
+            line.delete(del.o_830_line)
+            line.delete(del.o_830_thick)
+            line.delete(del.o_930_line)
+            line.delete(del.o_930_thick)
+
+    if OHLC.size() > 100
+        OHLC.pop()
+
+    if OHLC.size() > 1
+        ohlc prev = OHLC.get(1)
+        line.delete(prev.o_MN_thick)
+        line.delete(prev.o_830_thick)
+        line.delete(prev.o_930_thick)
+        line.set_x2(prev.o_MN_line, prev.c_time + (time-time[1]))
+        line.set_x2(prev.o_830_line, prev.c_time + (time-time[1]))
+        line.set_x2(prev.o_930_line, prev.c_time + (time-time[1]))
+        
+        prev.c_time := time
+    OHLC
+
+method update(ohlc[] OHLC) =>
+    if OHLC.size() > 0
+        ohlc last = OHLC.first()
+
+        if high > last.h
+            last.h      := high
+            last.h_time := time
+
+        if low < last.l
+            last.l      := low
+            last.l_time := time
+        last.c      := close
+        last.c_time := time
+    
+        if time == last.o_830_time
+            last.o_830 := open
+
+        if time == last.o_930_time
+            last.o_930  := open
+
+    OHLC
+
+method drawADRRange(ohlc[] OHLC) =>
+    if settings.ADR_show
+        if OHLC.size() > 7
+            float r     = 0
+            float part  = 0
+
+            for i = 1 to 7
+                d = OHLC.get(i)
+                if d.dow != "Saturday" and d.dow != "Sunday"
+                    r += d.h - d.l
+            
+            r       := r / 5
+            part    := r*0.3
+
+            current = OHLC.first()
+
+            idx     = bar_index + settings.ADR_buffer
+            idxb    = idx+6
+
+            if na(projection.body_high)
+                projection.body_high                := box.new(idx, current.l+r, idx+1, current.l, border_color = color_transparent, bgcolor=settings.ADR_bullish)
+                if settings.ADR_Trace
+                    if settings.ADR_Trace_Third
+                        projection.high_third           := line.new(current.o_idx, current.o+part, idxb, current.o+part, xloc.bar_index, extend.none, settings.ADR_Trace_color, f_get_line_style(settings.ADR_Trace_style), settings.ADR_Trace_size)
+                    projection.max                  := line.new(current.o_idx, current.l+r, idxb, current.o-part, xloc.bar_index, extend.none, settings.ADR_Trace_color, f_get_line_style(settings.ADR_Trace_style), settings.ADR_Trace_size)
+                    if settings.ADR_Trace_Label
+                        if settings.ADR_Trace_Third
+                            projection.high_third_label     := label.new(idxb, current.o+part, "+0.3 ADR", xloc.bar_index, yloc.price, settings.ADR_Trace_Label_bgcolor, label.style_label_left, settings.ADR_Trace_Label_color, settings.ADR_Trace_Label_size)
+                        projection.max_label            := label.new(idxb, current.l+r, "+ADR", xloc.bar_index, yloc.price, settings.ADR_Trace_Label_bgcolor, label.style_label_left, settings.ADR_Trace_Label_color, settings.ADR_Trace_Label_size)
+            else
+                if current.l+r > current.h
+                    box.set_lefttop(projection.body_high, idx, current.l+r)
+                    box.set_rightbottom(projection.body_high, idx+1, current.l)
+                    line.set_xy1(projection.max, current.o_idx, current.l+r)
+                    line.set_xy2(projection.max, idxb, current.l+r)
+                    label.set_xy(projection.high_third_label, idxb, current.l+r)
+                    label.set_xy(projection.max_label, idxb, current.l+r)
+                else
+                    box.set_lefttop(projection.body_high, idx, box.get_top(projection.body_low))
+                    box.set_rightbottom(projection.body_high, idx+1, box.get_bottom(projection.body_low))
+                    line.set_xy1(projection.max, current.o_idx, box.get_top(projection.body_low))
+                    line.set_xy2(projection.max, idxb, box.get_top(projection.body_low))
+                    label.set_xy(projection.max_label, idxb, box.get_top(projection.body_low))
+
+                if settings.ADR_Trace
+                    line.set_xy1(projection.high_third, current.o_idx, current.o+part)
+                    line.set_xy2(projection.high_third, idxb, current.o+part)
+                    label.set_xy(projection.high_third_label, idxb, current.o+part)
+
+
+            if na(projection.body_low)
+                projection.body_low                     := box.new(idx+2, current.h, idx+3, current.h-r, border_color = color_transparent, bgcolor=settings.ADR_bearish)
+                if settings.ADR_Trace
+                    if settings.ADR_Trace_Third
+                        projection.low_third                := line.new(current.o_idx, current.o-part, idxb, current.o-part, xloc.bar_index, extend.none, settings.ADR_Trace_color, f_get_line_style(settings.ADR_Trace_style), settings.ADR_Trace_size)
+                    projection.min                      := line.new(current.o_idx, current.h-r, idxb, current.o-part, xloc.bar_index, extend.none, settings.ADR_Trace_color, f_get_line_style(settings.ADR_Trace_style), settings.ADR_Trace_size)
+                    if settings.ADR_Trace_Label
+                        if settings.ADR_Trace_Third
+                            projection.low_third_label      := label.new(idxb, current.o-part, "-0.3 ADR", xloc.bar_index, yloc.price, settings.ADR_Trace_Label_bgcolor, label.style_label_left, settings.ADR_Trace_Label_color, settings.ADR_Trace_Label_size)
+                        projection.min_label            := label.new(idxb, current.h-r, "-ADR", xloc.bar_index, yloc.price, settings.ADR_Trace_Label_bgcolor, label.style_label_left, settings.ADR_Trace_Label_color, settings.ADR_Trace_Label_size)
+            else
+                if current.h-r < current.l
+                    box.set_lefttop(projection.body_low, idx+2, current.h)
+                    box.set_rightbottom(projection.body_low, idx+3, current.h-r)
+                    line.set_xy1(projection.min, current.o_idx, current.h-r)
+                    line.set_xy2(projection.min, idxb, current.h-r)
+                    label.set_xy(projection.min_label, idxb, current.h-r)
+                else
+                    box.set_lefttop(projection.body_low, idx+2, box.get_top(projection.body_high))
+                    box.set_rightbottom(projection.body_low, idx+3, box.get_bottom(projection.body_high))
+                    line.set_xy1(projection.min, current.o_idx, box.get_bottom(projection.body_high))
+                    line.set_xy2(projection.min, idxb, box.get_bottom(projection.body_high))
+                    label.set_xy(projection.min_label, idxb, box.get_bottom(projection.body_high))
+                if settings.ADR_Trace
+                    line.set_xy1(projection.low_third, current.o_idx, current.o-part)
+                    line.set_xy2(projection.low_third, idxb, current.o-part)
+                    label.set_xy(projection.low_third_label, idxb, current.o-part)                
+
+    OHLC
+
+//+------------------------------------------------------------------------------------------------------------+//
+//+--- Candle Methods                                                                                       ---+//
+//+------------------------------------------------------------------------------------------------------------+//
+method newDC(Candle[] DC) =>
+    dow = f_get_dayofweek(dayofweek(time, "America/New_York"))
+
+    Candle candle = Candle.new()
+    candle.o            := open
+    candle.c            := close
+    candle.h            := high
+    candle.l            := low
+    candle.dow          := str.substring(dow, 0, 1)
+
+    DC.unshift(candle)
+
+    if DC.size() > settings.DC_count
+        Candle c = DC.pop()
+        box.delete(c.body)
+        line.delete(c.wick_top)
+        line.delete(c.wick_bottom)
+        label.delete(c.lbl)
+    DC
+
+method updateDC(Candle[] DC) =>
+    if DC.size() > 0
+        Candle candle = DC.first()
+        if high > candle.h
+            candle.h      := high
+        if low < candle.l
+            candle.l      := low
+        candle.c      := close
+
+    DC
+
+method drawDC(Candle[] DC) =>
+    int count = DC.size()
+    if count > 0
+        for i = 0 to count-1
+            Candle candle = DC.get(i)
+            int position = bar_index+settings.DC_buffer +((count-i)*(settings.DC_spacing+2))
+            if settings.show_DC
+                if na(candle.body)
+                    candle.body := box.new(position, candle.o > candle.c ? candle.o : candle.c, position+2, candle.o > candle.c ? candle.c : candle.o, settings.DC_wick, 1, line.style_solid, extend.none, xloc.bar_index, candle.c > candle.o ? settings.DC_bullish : settings.DC_bearish)
+                else
+                    box.set_lefttop(candle.body, position, candle.o > candle.c ? candle.o : candle.c)
+                    box.set_rightbottom(candle.body, position+2, candle.o > candle.c ? candle.c : candle.o)
+                    box.set_bgcolor(candle.body, candle.c > candle.o ? settings.DC_bullish : settings.DC_bearish)
+
+                if na(candle.wick_top)
+                    candle.wick_top := line.new(position+1, candle.h, position+1, candle.o > candle.c ? candle.o : candle.c, xloc.bar_index, extend.none, settings.DC_wick)
+                else
+                    line.set_xy1(candle.wick_top, position+1, candle.h)
+                    line.set_xy2(candle.wick_top, position+1, candle.o > candle.c ? candle.o : candle.c)
+
+                if na(candle.wick_bottom)
+                    candle.wick_bottom  := line.new(position+1, candle.l, position+1, candle.o > candle.c ? candle.c : candle.o, xloc.bar_index, extend.none, settings.DC_wick)
+                else
+                    line.set_xy1(candle.wick_bottom, position+1, candle.l)
+                    line.set_xy2(candle.wick_bottom, position+1, candle.o > candle.c ? candle.c : candle.o)
+
+                if na(candle.lbl)
+                    candle.lbl := label.new(position+1, candle.h, candle.dow, textcolor=settings.DC_wick, color=color_transparent, style= label.style_label_down )
+                else
+                    label.set_xy(candle.lbl, position+1, candle.h)
+    DC
+
+method current(ohlc[] OHLC) =>
+    OHLC.size() > 0 ? OHLC.get(0) : na
+
+method session_seperator(ohlc[] OHLC) =>
+    if OHLC.size() > 0 and settings.show_session
+        ohlc step = OHLC.get(0)
+        if na(step.s_line)
+            step.s_line := line.new(step.o_time, step.o, step.o_time, step.o+1, xloc=xloc.bar_time, extend = extend.both, color=settings.s_color, style=f_get_line_style(settings.s_style), width = settings.s_size)
+
+method session_levels(ohlc[] OHLC) =>
+    if OHLC.size() > 0
+        ohlc step = OHLC.get(0)
+        int candletime = (time-time[1])
+
+        if settings.show_MN
+            step.o_line
+
+        if settings.show_MN and not na(step.o_MN)
+            if na(step.o_MN_line)
+                step.o_MN_line    := line.new(step.o_MN_time, step.o_MN, time + (candletime*5), step.o_MN, xloc=xloc.bar_time, color=settings.o_MN_color, style=f_get_line_style(settings.o_MN_style), width = settings.o_MN_size)
+                if settings.show_TOD_thick
+                    step.o_MN_thick   := line.new(time + (candletime*5), step.o_MN, time + (candletime*10), step.o_MN, xloc=xloc.bar_time, color=settings.o_MN_color, style=line.style_solid, width = 4)
+            else
+                line.set_x2(step.o_MN_line, time + (candletime*5))
+                if settings.show_TOD_thick
+                    line.set_x1(step.o_MN_thick, time + (candletime*5))
+                    line.set_x2(step.o_MN_thick, time + (candletime*10))
+
+        if settings.show_830 and not na(step.o_830)
+            if na(step.o_830_line)
+                step.o_830_line    := line.new(step.o_830_time, step.o_830, time + (candletime*5), step.o_830, xloc=xloc.bar_time, color=settings.o_830_color, style=f_get_line_style(settings.o_830_style), width = settings.o_830_size)
+                if settings.show_TOD_thick
+                    step.o_830_thick   := line.new(time + (candletime*5), step.o_830, time + (candletime*10), step.o_830, xloc=xloc.bar_time, color=settings.o_830_color, style=line.style_solid, width = 4)
+            else
+                line.set_x2(step.o_830_line, time + (candletime*5))
+                if settings.show_TOD_thick
+                    line.set_x1(step.o_830_thick, time + (candletime*5))
+                    line.set_x2(step.o_830_thick, time + (candletime*10))
+
+        if settings.show_930 and not na(step.o_930)
+            if na(step.o_930_line)
+                step.o_930_line     := line.new(step.o_930_time, step.o_930, time + (candletime*5), step.o_930, xloc=xloc.bar_time, color=settings.o_930_color, style=f_get_line_style(settings.o_930_style), width = settings.o_930_size)
+                if settings.show_TOD_thick
+                    step.o_930_thick    := line.new(time + (candletime*5), step.o_930, time + (candletime*10), step.o_930, xloc=xloc.bar_time, color=settings.o_930_color, style=line.style_solid, width = 4)
+            else
+                line.set_x2(step.o_930_line, time + (candletime*5))
+                if settings.show_TOD_thick
+                    line.set_x1(step.o_930_thick, time + (candletime*5))
+                    line.set_x2(step.o_930_thick, time + (candletime*10))
+    OHLC
+
+//+------------------------------------------------------------------------------------------------------------+//
+//+--- Zone Methods                                                                                         ---+//
+//+------------------------------------------------------------------------------------------------------------+//
+method start(Zone[] KZ) =>
+    Zone newZone = Zone.new()
+    newZone.o            := open
+    newZone.h            := high
+    newZone.l            := low
+    newZone.c            := close
+    newZone.o_time       := time
+    newZone.h_time       := time
+    newZone.l_time       := time
+    newZone.c_time       := time
+
+    KZ.unshift(newZone)
+    KZ
+
+method update(Zone[] KZ) =>
+    if KZ.size() > 0
+        Zone last = KZ.get(0)
+        if high > last.h
+            last.h      := high
+            last.h_time := time
+
+        if low < last.l
+            last.l      := low
+            last.l_time := time
+        last.c      := close
+        last.c_time := time
+    KZ 
+
+method startGap(Zone[] KZ) =>
+    Zone newZone = Zone.new()
+    newZone.o            := open
+    newZone.h            := high
+    newZone.l            := low
+    newZone.c            := close
+    newZone.o_time       := time
+    newZone.h_time       := time
+    newZone.l_time       := time
+    newZone.c_time       := time
+    KZ.unshift(newZone)
+    KZ
+
+method closeGap(Zone[] KZ) =>
+    if KZ.size() > 0
+        Zone last = KZ.get(0)
+        last.c      := open
+        last.c_time := time
+    KZ 
+
+method display(Zone[] KZ, int session) =>
+    var bool show       = false
+    var string style    = na
+    var int width       = na
+    var color bgcolor   = na
+    var color bcolor    = na
+    var bool  extend    = false
+    var string labeltext = ''
+    var float threshold = na
+    var string zone_text= na
+    var box zonelabel = na
+
+    if KZ.size() > 0
+        Zone step = KZ.first()
+
+        switch session
+            1 =>
+                show        := settings.show_asia
+                width       := settings.asia_border_size
+                style       := settings.asia_border_style
+                bgcolor     := settings.asia_background
+                bcolor      := settings.asia_border
+                labeltext   := settings.asia_zone_title
+                threshold   := settings.asia_zone_range_threshold
+            2 =>
+                show        := settings.show_london
+                width       := settings.london_border_size
+                style       := settings.london_border_style
+                bgcolor     := settings.london_background
+                bcolor      := settings.london_border
+                labeltext   := settings.london_zone_title
+                threshold   := settings.london_zone_range_threshold
+            3 =>
+                show        := settings.show_ny
+                width       := settings.ny_border_size
+                style       := settings.ny_border_style
+                bgcolor     := settings.ny_background
+                bcolor      := settings.ny_border
+                labeltext   := settings.ny_zone_title
+                threshold   := settings.ny_zone_range_threshold
+            4 =>
+                show        := settings.show_openrange
+                width       := settings.openrange_size
+                style       := settings.openrange_style
+                bgcolor     := settings.openrange_background
+                bcolor      := settings.openrange_border
+                extend      := settings.openrange_extend
+            5 =>
+                show        := settings.show_openrangegap
+                width       := settings.openrangegap_size
+                style       := settings.openrangegap_style
+                bgcolor     := settings.openrangegap_background
+                bcolor      := settings.openrangegap_border
+                extend      := settings.openrangegap_extend
+            6 =>
+                show        := settings.show_ny2
+                width       := settings.ny2_border_size
+                style       := settings.ny2_border_style
+                bgcolor     := settings.ny2_background
+                bcolor      := settings.ny2_border
+                labeltext   := settings.ny2_zone_title
+                threshold   := settings.ny2_zone_range_threshold
+            7 =>
+                show        := settings.show_ny3
+                width       := settings.ny3_border_size
+                style       := settings.ny3_border_style
+                bgcolor     := settings.ny3_background
+                bcolor      := settings.ny3_border
+                labeltext   := settings.ny3_zone_title
+                threshold   := settings.ny3_zone_range_threshold
+
+        if show and session < 5 or (session == 6 or session == 7)
+            if na(step.b)
+                step.b := box.new(step.o_time, step.h, step.c_time, step.l, bcolor, width, f_get_line_style(style), extend.none, xloc.bar_time, bgcolor)
+                zonelabel := box.new(step.h_time, step.h + 1, step.c_time, step.h, na, width, f_get_line_style(style), extend.none, xloc.bar_time, color.rgb(0, 0, 0, 100), text_color = color.white, text_valign = text.align_bottom)
+            else
+                box.set_top(step.b, step.h)
+                box.set_bottom(step.b, step.l)
+                box.set_top(zonelabel, step.h + (step.h - step.l) / 5)
+                box.set_bottom(zonelabel, step.h)
+            if extend
+                box.set_right(step.b, time+(time-time[1]))
+                box.set_right(zonelabel, time+(time-time[1]))
+            else
+                box.set_right(step.b, step.c_time)
+                box.set_right(zonelabel, step.c_time)
+
+            zone_text := (labeltext != "" ? (labeltext + ": ") : "") + "(" + str.tostring((step.h - step.l) / (syminfo.mintick * 10)) + ")"
+
+            if ((step.h - step.l) / (syminfo.mintick * 10)) > threshold
+                box.set_text(zonelabel, zone_text)
+                box.set_text_color(zonelabel, color.rgb(196, 79, 79))
+                box.set_text_size(zonelabel,size.normal)
+
+            if ((step.h - step.l) / (syminfo.mintick * 10)) <= threshold
+                box.set_text(zonelabel, zone_text)
+                box.set_text_color(zonelabel, color.rgb(23, 90, 26))
+                box.set_text_size(zonelabel,size.normal)
+                            
+
+        if show and session == 5 and step.o_time != step.c_time
+            if na(step.b)
+                step.b := box.new(step.o_time, step.c, step.c_time, step.o, bcolor, width, f_get_line_style(style), extend.none, xloc.bar_time, bgcolor)
+                zonelabel := box.new(step.h_time, step.h + 1, step.c_time, step.h, na, width, f_get_line_style(style), extend.none, xloc.bar_time, color.rgb(0, 0, 0, 100), text_color = color.white, text_valign = text.align_bottom)
+            else
+                box.set_top(step.b, step.c)
+                box.set_right(step.b, step.c_time)
+                box.set_top(zonelabel, step.h + (step.h - step.l) / 5)
+                box.set_bottom(zonelabel, step.h)
+            if extend
+                box.set_right(step.b, time+(time-time[1]))
+                box.set_right(zonelabel, time+(time-time[1]))
+            else
+                box.set_right(step.b, step.c_time)
+                box.set_right(zonelabel, step.c_time)
+
+            zone_text := (labeltext != "" ? (labeltext + ": ") : "") + "(" + str.tostring((step.h - step.l) / (syminfo.mintick * 10)) + ")"
+
+            if ((step.h - step.l) / (syminfo.mintick * 10)) > threshold
+                box.set_text(zonelabel, zone_text)
+                box.set_text_color(zonelabel, color.red)
+                box.set_text_size(zonelabel,size.normal)
+
+            if ((step.h - step.l) / (syminfo.mintick * 10)) <= threshold
+                box.set_text(zonelabel, zone_text)
+                box.set_text_color(zonelabel, color.rgb(23, 88, 25))
+                box.set_text_size(zonelabel,size.normal)
+
+    KZ
+
+//+------------------------------------------------------------------------------------------------------------+//
+//+--- Main Logic                                                                                           ---+//
+//+------------------------------------------------------------------------------------------------------------+//
+newDay = dayofweek(time, "America/New_York") != dayofweek(time-(time-time[1]), "America/New_York")
+valid = f_Validtimeframe()
+dow = f_get_dayofweek(dayofweek(time, "America/New_York"))
+
+if valid
+    if newDay
+        OHLC.new().session_seperator()
+
+        if (dow == "Saturday" and not settings.DC_ignore_saturday) or (dow == "Sunday" and not settings.DC_ignore_sunday) or (dow != "Saturday" and dow != "Sunday")
+            DC.newDC()
+
+    if tLondon
+        if not tLondon[1]
+            london.start()
+            if london.size() > settings.max_days
+                l = london.pop()
+                box.delete(l.b)
+        london.update().display(2)
+
+    if tNY
+        if not tNY[1]
+            ny.start()
+            if ny.size() > settings.max_days
+                n = ny.pop()
+                box.delete(n.b)
+        ny.update().display(3)
+
+    if tNY2
+        if not tNY2[1]
+            ny2.start()
+            if ny2.size() > settings.max_days
+                n2 = ny2.pop()
+                box.delete(n2.b)
+        ny2.update().display(6)
+
+    if tNY3
+        if not tNY3[1]
+            ny3.start()
+            if ny3.size() > settings.max_days
+                n3 = ny3.pop()
+                box.delete(n3.b)
+        ny3.update().display(7)
+
+    if tAsia
+        if not tAsia[1]
+            asia.start()
+            if asia.size() > settings.max_days
+                Zone a = asia.pop()
+                box.delete(a.b)
+        asia.update().display(1)
+
+    if tOpenRange
+        if not tOpenRange[1]
+            openrange.start()
+            if openrange.size() > settings.max_days
+                opr = openrange.pop()
+                box.delete(opr.b)
+        openrange.update()
+
+    openrange.display(4)
+
+    if tOpenRangeGap and not tOpenRangeGap[1]
+        openrangegap.startGap()
+
+    if tOpenRangeGap[1] and not tOpenRangeGap
+        openrangegap.closeGap()
+
+    if openrangegap.size() > settings.max_days
+        oprg = openrangegap.pop()
+        box.delete(oprg.b)
+
+    openrangegap.display(5)
+
+    OHLC.update().drawADRRange().session_levels()
+
+    if (dow == "Saturday" and not settings.DC_ignore_saturday) or (dow == "Sunday" and not settings.DC_ignore_sunday) or (dow != "Saturday" and dow != "Sunday")
+        DC.updateDC()
+
+    DC.drawDC()
+
+//+------------------------------------------------------------------------------------------------------------+//
+//+--- Day of Week Display                                                                                  ---+//
+//+------------------------------------------------------------------------------------------------------------+//
+current     = OHLC.current()
+day         = na(current) ? "" :  current.dow
+plotshape(settings.show_dayofweek ? newDay and day == "Monday" and valid      : false, offset=na(current) ? 0 : f_get_day_offset(2)-1, style=shape.diamond, text="MON",      color=color_transparent, location = location.bottom, textcolor=settings.dayofweek_color, size=size.auto)
+plotshape(settings.show_dayofweek ? newDay and day == "Tuesday" and valid     : false, offset=na(current) ? 0 : f_get_day_offset(3)-1, style=shape.diamond, text="TUE",     color=color_transparent, location = location.bottom, textcolor=settings.dayofweek_color, size=size.auto)
+plotshape(settings.show_dayofweek ? newDay and day == "Wednesday" and valid   : false, offset=na(current) ? 0 : f_get_day_offset(4)-1, style=shape.diamond, text="WED",   color=color_transparent, location = location.bottom, textcolor=settings.dayofweek_color, size=size.auto)
+plotshape(settings.show_dayofweek ? newDay and day == "Thursday" and valid    : false, offset=na(current) ? 0 : f_get_day_offset(5)-1, style=shape.diamond, text="THU",    color=color_transparent, location = location.bottom, textcolor=settings.dayofweek_color, size=size.auto)
+plotshape(settings.show_dayofweek ? newDay and day == "Friday" and valid      : false, offset=na(current) ? 0 : f_get_day_offset(6)-1, style=shape.diamond, text="FRI",      color=color_transparent, location = location.bottom, textcolor=settings.dayofweek_color, size=size.auto)
+plotshape(settings.show_dayofweek ? newDay and day == "saturday" and valid    : false, offset=na(current) ? 0 : f_get_day_offset(7), style=shape.diamond, text="SAT",    color=color_transparent, location = location.bottom, textcolor=settings.dayofweek_color, size=size.auto)
+plotshape(settings.show_dayofweek ? newDay and day == "Sunday" and valid      : false, offset=na(current) ? 0 : f_get_day_offset(1), style=shape.diamond, text="SUN",      color=color_transparent, location = location.bottom, textcolor=settings.dayofweek_color, size=size.auto)
+
+//+------------------------------------------------------------------------------------------------------------+//
+//+--- IPDA INDICATOR                                                                                       ---+//
+//+------------------------------------------------------------------------------------------------------------+//
+
+percenter(top, bottom) =>
+    math.round(((close - bottom) / (top - bottom)) * 100, 1)
+
+____ = input.text_area("---- IPDA INDICATOR SETTINGS BELLOW ----")
+alertTT = "NOTE: to avoid constant alerts, only runs that will break a level that was NOT crossed during the previous candle will trigger an alert."
+
+alerts = input.bool(false, title="Alerts?", tooltip=alertTT)
+
+plotType = input.string("Boxes", 
+                       title = "IPDA Plot Format",
+                       group = "---- IPDAPLOT SETTINGS -----",
+                       inline = 'tt', 
+                       options = ["Boxes", "Table A", "Table B"], 
+                       tooltip = "'Boxes' plots proper IPDA ranges;\n'Table A' shows Discount / Premium label;\n'Table B' shows the distance from Equilibirum in %.")
+
+_showT = input.bool(true,
+                     title = "Show Text",
+                     group = "PLOT SETTINGS",
+                     inline = 'tt')
+
+discountC = input.color(color.new(color.maroon, 80), 
+                         title = "Discount",
+                         group = "PLOT SETTINGS" ,
+                         inline = "pd")
+
+equilibriumC = input.color(color.new(#000000, 0), 
+                         title = "Equilibrium",
+                         group = "PLOT SETTINGS" ,
+                         inline = "pd")
+
+premiumC = input.color(color.new(color.navy, 80), 
+                         title = "Premium",
+                         group = "PLOT SETTINGS" ,
+                         inline = "pd")
+
+ipda20 = input.bool(true, 
+                   title = "IPDA20", 
+                   group = "IPDA INTERVALS", 
+                   inline = "int")
+
+ipda40 = input.bool(true, 
+                   title = "IPDA40", 
+                   group = "IPDA INTERVALS", 
+                   inline = "int")
+
+ipda60 = input.bool(true, 
+                   title = "IPDA60", 
+                   group = "IPDA INTERVALS", 
+                   inline = "int")
+
+_ipdaType = input.string("CLASSIC",
+                         title = "IPDA Data Ranges Type",
+                         group = "IPDA INTERVALS",
+                         options = ["CLASSIC", "CLASSIC+LTF", "LTF"],
+                         tooltip = "CLASSIC: standard Daily IPDA Data Ranges visible only on 1D timeframe.\n\nCLASSIC+LTF: plots the Daily 20, 40, 60 IPDA Data Ranges regardless of timeframe.\n\nLTF: plots last 20, 40, 60 IPDA Data Ranges of the current timeframe."
+                         )
+
+_showDLTF = _ipdaType == "CLASSIC+LTF"
+_showLTF  = _ipdaType == "LTF"
+
+_showDLTF := _showLTF ? true : _showDLTF
+
+time20     = _showLTF ? time[20] : request.security(syminfo.tickerid, "D", time[20])
+low20      = _showLTF ? ta.lowest(low, 20)[1] : request.security(syminfo.tickerid, "D", ta.lowest(low, 20))[1]
+high20     = _showLTF ? ta.highest(high, 20)[1] : request.security(syminfo.tickerid, "D", ta.highest(high, 20))[1]
+eq20       = (low20 + high20) / 2
+
+time40     = _showLTF ? time[40] : request.security(syminfo.tickerid, "D", time[40])
+low40      = _showLTF ? ta.lowest(low, 40)[1] : request.security(syminfo.tickerid, "D", ta.lowest(low, 40))[1]
+high40     = _showLTF ? ta.highest(high, 40)[1] : request.security(syminfo.tickerid, "D", ta.highest(high, 40))[1]
+eq40       = (low40 + high40) / 2
+
+time60     = _showLTF ? time[60] : request.security(syminfo.tickerid, "D", time[60])
+low60      = _showLTF ? ta.lowest(low, 60)[1] : request.security(syminfo.tickerid, "D", ta.lowest(low, 60))[1]
+high60     = _showLTF ? ta.highest(high, 60)[1] : request.security(syminfo.tickerid, "D", ta.highest(high, 60))[1]
+eq60       = (low60 + high60) / 2
+
+loc20      = close < eq20
+loc40      = close < eq40
+loc60      = close < eq60
+
+percent20  = percenter(high20, low20)
+percent40  = percenter(high40, low40)
+percent60  = percenter(high60, low60)
+
+lvlAlert(bool active, string ipda, float lvl, string id) =>
+    if active
+        if id=="High" and high > lvl and high[1] < lvl
+            alert(ipda+": price crossed above the High!", alert.freq_once_per_bar)
+        else if id=="Eq" and high > lvl and high[1] < lvl
+            alert(ipda+": price crossed above Equilibrium!", alert.freq_once_per_bar)
+        else if id=="Eq" and low < lvl and low[1] > lvl
+            alert(ipda+": price crossed below Equilibrium!", alert.freq_once_per_bar)
+        else if id=="Low" and low < lvl and low[1] > lvl
+            alert(ipda+": price crossed below the Low!", alert.freq_once_per_bar)
+
+ipdaAlert(bool active, string ipda, float H, float E, float L) =>
+    lvlAlert(active, ipda, H, "High")
+    lvlAlert(active, ipda, E, "Eq")
+    lvlAlert(active, ipda, L, "Low")
+
+if alerts
+    ipdaAlert(ipda20, "IPDA20", high20, eq20, low20)
+    ipdaAlert(ipda40, "IPDA40", high40, eq40, low40)
+    ipdaAlert(ipda60, "IPDA60", high60, eq60, low60)
+
+var box  ipda20P = na
+var line ipda20E = na
+var box  ipda20D = na
+
+var box  ipda40P = na
+var line ipda40E = na
+var box  ipda40D = na
+
+var box  ipda60P = na
+var line ipda60E = na
+var box  ipda60D = na
+
+if barstate.islast and plotType == "Boxes" and (_showDLTF ? true : timeframe.period == "D")
+    if ipda60
+        ipda60P := box.new(time60,
+                           high60, 
+                           time[1], 
+                           eq60, 
+                           xloc = xloc.bar_time, 
+                           border_color = color.new(color.black,100), 
+                           bgcolor = premiumC)
+        
+        ipda60E := line.new(time60,
+                           eq60,
+                           time[1],
+                           eq60,
+                           xloc = xloc.bar_time,
+                           color = equilibriumC)
+
+        ipda60D := box.new(time60,
+                           eq60, 
+                           time[1], 
+                           low60, 
+                           xloc = xloc.bar_time, 
+                           border_color = color.new(color.black,100), 
+                           bgcolor = discountC,
+                           text = "IPDA60",
+                           text_size = size.small,
+                           text_color = _showT ? #000000 : color.new(#000000,100),
+                           text_halign = text.align_left,
+                           text_valign = text.align_bottom)
+
+        box.delete(ipda60P[1])
+        line.delete(ipda60E[1])
+        box.delete(ipda60D[1])
+
+
+    if ipda40
+        ipda40P := box.new(time40,
+                           high40, 
+                           time[1], 
+                           eq40, 
+                           xloc = xloc.bar_time, 
+                           border_color = color.new(color.black,100), 
+                           bgcolor = premiumC)
+        
+        ipda40E := line.new(time40,
+                           eq40,
+                           time[1],
+                           eq40,
+                           xloc = xloc.bar_time,
+                           color = equilibriumC)
+
+        ipda40D := box.new(time40,
+                           eq40, 
+                           time[1], 
+                           low40, 
+                           xloc = xloc.bar_time, 
+                           border_color = color.new(color.black,100), 
+                           bgcolor = discountC, 
+                           text = "IPDA40",
+                           text_size = size.small,
+                           text_color = _showT ? #000000 : color.new(#000000,100),
+                           text_halign = text.align_left,
+                           text_valign = text.align_bottom)
+
+        box.delete(ipda40P[1])
+        line.delete(ipda40E[1])
+        box.delete(ipda40D[1])
+
+
+    if ipda20
+        ipda20P := box.new(time20,
+                           high20, 
+                           time[1], 
+                           eq20, 
+                           xloc = xloc.bar_time, 
+                           border_color = color.new(color.black,100), 
+                           bgcolor = premiumC)
+        
+        ipda20E := line.new(time20,
+                           eq20,
+                           time[1],
+                           eq20,
+                           xloc = xloc.bar_time,
+                           color = equilibriumC)
+
+        ipda20D := box.new(time20,
+                           eq20, 
+                           time[1], 
+                           low20, 
+                           xloc = xloc.bar_time, 
+                           border_color = color.new(color.black,100), 
+                           bgcolor = discountC, 
+                           text = "IPDA20",
+                           text_size = size.small,
+                           text_color = _showT ? #000000 : color.new(#000000,100),
+                           text_halign = text.align_left,
+                           text_valign = text.align_bottom)
+
+        box.delete(ipda20P[1])
+        line.delete(ipda20E[1])
+        box.delete(ipda20D[1])
+
+//+------------------------------------------------------------------------------------------------------------+//
+//+--- ASR CLOCK INDICATOR                                                                                      ---+//
+//+------------------------------------------------------------------------------------------------------------+//
+
+_____ = input.text_area("---- Clock INDICATOR SETTINGS BELLOW ----")
+utc_offset = input.float(-4.0, title="UTC Offset (NY = -4)")
+
+group_b = "ASR B Setup Times (Red)"
+b_start = input.int(0, title="B Start Hour", minval=0, maxval=23, group=group_b)
+b_end = input.int(1, title="B End Hour", minval=0, maxval=23, group=group_b)
+
+group_a = "ASR A Setup Times (Yellow)" 
+a1_start = input.int(1, title="A1 Start Hour", minval=0, maxval=23, group=group_a)
+a1_end = input.int(2, title="A1 End Hour", minval=0, maxval=23, group=group_a)
+a2_start = input.int(4, title="A2 Start Hour", minval=0, maxval=23, group=group_a)
+a2_end = input.int(5, title="A2 End Hour", minval=0, maxval=23, group=group_a)
+
+group_aplus = "ASR A+ Setup Times (Green)"
+aplus_start = input.int(2, title="A+ Start Hour", minval=0, maxval=23, group=group_aplus)
+aplus_end = input.int(4, title="A+ End Hour", minval=0, maxval=23, group=group_aplus)
+
+color_b = input.color(color.red, title="B Setup Color", group="Colors")
+color_a = input.color(color.yellow, title="A Setup Color", group="Colors")
+color_aplus = input.color(color.green, title="A+ Setup Color", group="Colors")
+color_default = input.color(color.gray, title="Default Color", group="Colors")
+
+col = input.color(#000000, title="Clock Text Color")
+
+loc = input.string("Top Right", title="Clock Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"])
+
+clock_text_size_option = input.string("large", title="Clock Text Size", options=["small", "normal", "large"])
+
+clock_text_size = clock_text_size_option == "small" ? size.small : clock_text_size_option == "normal" ? size.normal : size.large
+
+get_hms() =>
+    timenow_utc = (timenow / 1000) + (utc_offset * 3600)
+    hour_ = math.floor((timenow_utc % 86400) / 3600)
+    minute_ = math.floor((timenow_utc % 3600) / 60)
+    second_ = math.floor(timenow_utc % 60)
+    ret = (hour_ < 10 ? "0" : "") + str.tostring(hour_)
+    ret := ret + ":" + (minute_ < 10 ? "0" : "") + str.tostring(minute_)
+    ret := ret + ":" + (second_ < 10 ? "0" : "") + str.tostring(second_)
+    ret
+
+get_current_hour() =>
+    timenow_utc = (timenow / 1000) + (utc_offset * 3600)
+    math.floor((timenow_utc % 86400) / 3600)
+
+is_in_range(start_hour, end_hour, current_hour) =>
+    if start_hour <= end_hour
+        current_hour >= start_hour and current_hour < end_hour
+    else
+        current_hour >= start_hour or current_hour < end_hour
+
+current_hour = get_current_hour()
+is_b_time = is_in_range(b_start, b_end, current_hour)
+is_a_time = is_in_range(a1_start, a1_end, current_hour) or is_in_range(a2_start, a2_end, current_hour)
+is_aplus_time = is_in_range(aplus_start, aplus_end, current_hour)
+
+current_color = color_default
+current_status = "---"
+
+if is_b_time
+    current_color := color_b
+    current_status := "B"
+else if is_a_time
+    current_color := color_a  
+    current_status := "A"
+else if is_aplus_time
+    current_color := color_aplus
+    current_status := "A+"
+
+var positionTable = position.top_right
+if (loc == "Top Right")
+    positionTable := position.top_right
+else if (loc == "Top Left")
+    positionTable := position.top_left
+else if (loc == "Bottom Right")
+    positionTable := position.bottom_right
+else if (loc == "Bottom Left")
+    positionTable := position.bottom_left
+
+IPDA_table_show = (plotType == "Table A" or plotType == "Table B") ? true : false
+
+display_text = get_hms() + "\n[" + current_status + "]"
+
+table_rows = IPDA_table_show ? 4 : 1
+table_cols = 2
+
+var table ttable = table.new(positionTable, table_cols, table_rows)
+
+table.merge_cells(ttable, 0, 0, 1, 0) 
+table.cell(ttable, 0, 0, text=display_text, text_color=col, bgcolor=current_color, text_size=clock_text_size)
+table.cell(ttable, 1, 0, text="", bgcolor=current_color)
+
+if IPDA_table_show
+    if plotType == "Table A"
+        table.cell(ttable, 0, 1, "IPDA60", text_color=#000000, text_halign=text.align_center, text_size=size.normal, bgcolor=#d1d4dc)
+        table.cell(ttable, 1, 1, loc60 ? "Discount" : "Premium", text_color=loc60 ? color.maroon : color.navy, text_size=size.normal, bgcolor=#d1d4dc)
+        
+        table.cell(ttable, 0, 2, "IPDA40", text_color=#000000, text_halign=text.align_center, text_size=size.normal, bgcolor=#d1d4dc)
+        table.cell(ttable, 1, 2, loc40 ? "Discount" : "Premium", text_color=loc40 ? color.maroon : color.navy, text_size=size.normal, bgcolor=#d1d4dc)
+        
+        table.cell(ttable, 0, 3, "IPDA20", text_color=#000000, text_halign=text.align_center, text_size=size.normal, bgcolor=#d1d4dc)
+        table.cell(ttable, 1, 3, loc20 ? "Discount" : "Premium", text_color=loc20 ? color.maroon : color.navy, text_size=size.normal, bgcolor=#d1d4dc)
+
+    else if plotType == "Table B"
+        table.cell(ttable, 0, 1, "IPDA60", text_color=#000000, text_halign=text.align_center, text_size=size.normal, bgcolor=#d1d4dc)
+        table.cell(ttable, 1, 1, str.tostring(percent60) + "%", text_color=loc60 ? color.maroon : color.navy, text_size=size.normal, bgcolor=#d1d4dc)
+        
+        table.cell(ttable, 0, 2, "IPDA40", text_color=#000000, text_halign=text.align_center, text_size=size.normal, bgcolor=#d1d4dc)
+        table.cell(ttable, 1, 2, str.tostring(percent40) + "%", text_color=loc40 ? color.maroon : color.navy, text_size=size.normal, bgcolor=#d1d4dc)
+        
+        table.cell(ttable, 0, 3, "IPDA20", text_color=#000000, text_halign=text.align_center, text_size=size.normal, bgcolor=#d1d4dc)
+        table.cell(ttable, 1, 3, str.tostring(percent20) + "%", text_color=loc20 ? color.maroon : color.navy, text_size=size.normal, bgcolor=#d1d4dc)
+      
+
+
+ //------------------------------------------------------------------------------
+//  MSS detector
+//-------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+// Settings
+//-----------------------------------------------------------------------------{
+
+internalLength = input.int(8, title="Internal Swing Length", maxval=20, minval=2, group="Internal/External Market Structure [UAlgo]")
+externalLength = input.int(30, title="External Swing Length", minval=30, maxval=200, group="Internal/External Market Structure [UAlgo]")
+showMarketStructure = input.string("Both",title = "Show Internal/External Market Structure",options = ["Both","Internal","External"],group="Internal/External Market Structure [UAlgo]")
+upColor = input.color(color.new(color.teal,0),title = "Bullish/Bearish Market Structure Color",group="Internal/External Market Structure [UAlgo]",inline = "vs")
+dnColor = input.color(color.new(color.red,0),title = " ",group="Internal/External Market Structure [UAlgo]",inline = "vs")
+
+type swing
+    float price = na
+    int time = na
+    bool crossed = false
+
+type market
+    string msbOrBos
+    int direction
+    line marketLine
+    int lastLineTime
+    label marketLabel
+
+var market internalStructure = market.new(na, na, na, 0)
+var market externalStructure = market.new(na, na, na, 0)
+
+detectSwings(len) =>
+    var int swingDirection = 0
+    var swing highPoint = swing.new(na, na)
+    var swing lowPoint = swing.new(na, na)
+    upperLevel = ta.highest(len)
+    lowerLevel = ta.lowest(len)
+
+    swingDirection := high[len] > upperLevel ? 0 : low[len] < lowerLevel ? 1 : swingDirection
+
+    if swingDirection == 0 and swingDirection[1] != 0
+        highPoint := swing.new(high[len], time[len])
+    if swingDirection == 1 and swingDirection[1] != 1
+        lowPoint := swing.new(low[len], time[len])
+
+    [highPoint, lowPoint]
+
+checkMarketStructure(crossed, direction, swingPrice, swingTime, lineColor, isExternal) =>
+    var market structure = isExternal ? externalStructure : internalStructure
+    structure.msbOrBos := na(structure.msbOrBos) ? "msb" : structure.direction == direction ? "bos" : "msb"
+    structure.direction := direction
+    structure.marketLine := line.new(x1=swingTime, y1=swingPrice, x2=time, y2=swingPrice, xloc=xloc.bar_time, color=lineColor, style=isExternal ? line.style_dashed : line.style_solid)
+    labelText = structure.msbOrBos == "msb" ? (isExternal ? "MSS+" : "MSS") : (isExternal ? "BoS+" : "BoS")
+    labelX = math.round(math.avg(swingTime, time))
+    structure.marketLabel := label.new(x=labelX, y=swingPrice, text=labelText, color=color.new(color.white, 100), textcolor=lineColor, style=direction == 1 ? label.style_label_down : label.style_label_up, xloc=xloc.bar_time, size=size.small)
+
+
+if showMarketStructure == "Internal" or showMarketStructure == "Both"
+    bool isInternalLowCrossed = false
+    bool isInternalHighCrossed = false
+    
+    [internalHigh, internalLow] = detectSwings(internalLength)
+   
+    if close < internalLow.price and not internalLow.crossed
+        internalLow.crossed := true
+        isInternalLowCrossed := true
+        checkMarketStructure(true, -1, internalLow.price, internalLow.time, dnColor, false)
+
+    else if close > internalHigh.price and not internalHigh.crossed
+        internalHigh.crossed := true
+        isInternalHighCrossed := true
+        checkMarketStructure(true, 1, internalHigh.price, internalHigh.time, upColor, false)
+
+if showMarketStructure == "External" or showMarketStructure == "Both"
+    bool isExternalLowCrossed = false
+    bool isExternalHighCrossed = false
+
+    [externalHigh, externalLow] = detectSwings(externalLength)
+    
+    if close < externalLow.price and not externalLow.crossed
+        externalLow.crossed := true
+        isExternalLowCrossed := true
+        checkMarketStructure(true, -1, externalLow.price, externalLow.time, dnColor, true)
+
+    else if close > externalHigh.price and not externalHigh.crossed
+        externalHigh.crossed := true
+        isExternalHighCrossed := true
+        checkMarketStructure(true, 1, externalHigh.price, externalHigh.time, upColor, true)
